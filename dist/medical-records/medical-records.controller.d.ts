@@ -1,0 +1,40 @@
+import { MedicalRecordsService } from './medical-records.service';
+import { CreateMedicalRecordDto } from './dto/create-medical-record.dto';
+import { UpdateMedicalRecordDto } from './dto/update-medical-record.dto';
+import { MedicalRecordResponseDto } from './dto/medical-record-response.dto';
+import { CreateMedicalHistoryBaseDto } from './dto/create-medical-history-base.dto';
+import { UpdateMedicalHistoryBaseDto } from './dto/update-medical-history-base.dto';
+import { CreateSpecialtyMedicalHistoryDto } from './dto/create-specialty-medical-history.dto';
+import { UpdateSpecialtyMedicalHistoryDto } from './dto/update-specialty-medical-history.dto';
+import { MedicalHistoryBaseResponseDto, SpecialtyMedicalHistoryResponseDto } from './dto/medical-history-response.dto';
+import { User } from '../users/entities/user.entity';
+export declare class MedicalRecordsController {
+    private readonly medicalRecordsService;
+    private readonly logger;
+    constructor(medicalRecordsService: MedicalRecordsService);
+    create(createMedicalRecordDto: CreateMedicalRecordDto, user: User): Promise<MedicalRecordResponseDto>;
+    findAll(user: User, includeInactive?: string): Promise<MedicalRecordResponseDto[]>;
+    findByPatientDni(dni: string, user: User): Promise<MedicalRecordResponseDto[]>;
+    findByRecordNumber(recordNumber: string, user: User): Promise<MedicalRecordResponseDto>;
+    findBySpecialty(specialtyId: string, user: User): Promise<MedicalRecordResponseDto[]>;
+    findByProfessional(professionalId: string, user: User): Promise<MedicalRecordResponseDto[]>;
+    getStats(user: User): Promise<any>;
+    findOne(id: string, user: User): Promise<MedicalRecordResponseDto>;
+    update(id: string, updateMedicalRecordDto: UpdateMedicalRecordDto, user: User): Promise<MedicalRecordResponseDto>;
+    deactivate(id: string, user: User): Promise<MedicalRecordResponseDto>;
+    updateTriage(id: string, triageData: any, user: User): Promise<MedicalRecordResponseDto>;
+    createMedicalHistoryBase(medicalRecordId: string, createMedicalHistoryBaseDto: CreateMedicalHistoryBaseDto, user: User): Promise<MedicalHistoryBaseResponseDto>;
+    getMedicalHistoryBase(medicalRecordId: string, user: User): Promise<MedicalHistoryBaseResponseDto>;
+    updateMedicalHistoryBase(medicalRecordId: string, updateMedicalHistoryBaseDto: UpdateMedicalHistoryBaseDto, user: User): Promise<MedicalHistoryBaseResponseDto>;
+    createSpecialtyMedicalHistory(medicalRecordId: string, createSpecialtyMedicalHistoryDto: CreateSpecialtyMedicalHistoryDto, user: User): Promise<SpecialtyMedicalHistoryResponseDto>;
+    getSpecialtyMedicalHistory(medicalRecordId: string, user: User): Promise<SpecialtyMedicalHistoryResponseDto>;
+    updateSpecialtyMedicalHistory(medicalRecordId: string, updateSpecialtyMedicalHistoryDto: UpdateSpecialtyMedicalHistoryDto, user: User): Promise<SpecialtyMedicalHistoryResponseDto>;
+    getCompletionStatus(medicalRecordId: string, user: User): Promise<{
+        hasTriage: boolean;
+        hasMedicalHistoryBase: boolean;
+        hasSpecialtyHistory: boolean;
+        canFinalize: boolean;
+        missingSteps: string[];
+    }>;
+    finalizeRecord(medicalRecordId: string, user: User): Promise<MedicalRecordResponseDto>;
+}

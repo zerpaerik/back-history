@@ -1,0 +1,265 @@
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, Like, Not } from 'typeorm';
+import { Patient } from './entities/patient.entity';
+import { CreatePatientDto } from './dto/create-patient.dto';
+import { UpdatePatientDto } from './dto/update-patient.dto';
+import { PatientResponseDto } from './dto/patient-response.dto';
+
+@Injectable()
+export class PatientsService {
+  private readonly logger = new Logger(PatientsService.name);
+
+  constructor(
+    @InjectRepository(Patient)
+    private readonly patientRepository: Repository<Patient>,
+  ) {}
+
+  async create(createPatientDto: CreatePatientDto): Promise<PatientResponseDto> {
+    this.logger.log(`=== CREANDO NUEVO PACIENTE ===`);
+    this.logger.log(`Identificación: ${createPatientDto.identificationType} ${createPatientDto.identificationNumber}`);
+    this.logger.log(`Nombre: ${createPatientDto.firstName} ${createPatientDto.firstLastname}`);
+
+    // Verificar si ya existe un paciente con la misma identificación
+    const existingPatient = await this.patientRepository.findOne({
+      where: {
+        identificationType: createPatientDto.identificationType,
+        identificationNumber: createPatientDto.identificationNumber,
+      },
+    });
+
+    if (existingPatient) {
+      this.logger.error(`Paciente ya existe con identificación: ${createPatientDto.identificationType} ${createPatientDto.identificationNumber}`);
+      throw new ConflictException(
+        'Ya existe un paciente con este tipo y número de identificación',
+      );
+    }
+
+    try {
+      const patient = this.patientRepository.create({
+        ...createPatientDto,
+        birthDate: new Date(createPatientDto.birthDate),
+      });
+
+      const savedPatient = await this.patientRepository.save(patient);
+      this.logger.log(`Paciente creado exitosamente con ID: ${savedPatient.id}`);
+      
+      return this.mapToResponseDto(savedPatient);
+    } catch (error) {
+      this.logger.error(`Error al crear paciente: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async findAll(includeInactive = false): Promise<PatientResponseDto[]> {
+    this.logger.log(`=== LISTANDO PACIENTES ===`);
+    this.logger.log(`Incluir inactivos: ${includeInactive}`);
+
+    const whereCondition = includeInactive ? {} : { isActive: true };
+    
+    const patients = await this.patientRepository.find({
+      where: whereCondition,
+      order: { createdAt: 'DESC' },
+    });
+
+    this.logger.log(`Encontrados ${patients.length} pacientes`);
+    return patients.map(patient => this.mapToResponseDto(patient));
+  }
+
+  async findById(id: string): Promise<PatientResponseDto> {
+    this.logger.log(`=== BUSCANDO PACIENTE POR ID ===`);
+    this.logger.log(`ID: ${id}`);
+
+    const patient = await this.patientRepository.findOne({
+      where: { id, isActive: true },
+    });
+
+    if (!patient) {
+      this.logger.error(`Paciente no encontrado con ID: ${id}`);
+      throw new NotFoundException('Paciente no encontrado');
+    }
+
+    this.logger.log(`Paciente encontrado: ${patient.getFullName()}`);
+    return this.mapToResponseDto(patient);
+  }
+
+  async findByIdentification(
+    identificationType: string,
+    identificationNumber: string,
+  ): Promise<PatientResponseDto> {
+    this.logger.log(`=== BUSCANDO PACIENTE POR IDENTIFICACIÓN ===`);
+    this.logger.log(`Identificación: ${identificationType} ${identificationNumber}`);
+
+    const patient = await this.patientRepository.findOne({
+      where: {
+        identificationType: identificationType as any,
+        identificationNumber,
+        isActive: true,
+      },
+    });
+
+    if (!patient) {
+      this.logger.error(`Paciente no encontrado con identificación: ${identificationType} ${identificationNumber}`);
+      throw new NotFoundException('Paciente no encontrado');
+    }
+
+    this.logger.log(`Paciente encontrado: ${patient.getFullName()}`);
+    return this.mapToResponseDto(patient);
+  }
+
+  async searchPatients(searchTerm: string): Promise<PatientResponseDto[]> {
+    this.logger.log(`=== BUSCANDO PACIENTES ===`);
+    this.logger.log(`Término de búsqueda: ${searchTerm}`);
+
+    const patients = await this.patientRepository.find({
+      where: [
+        { firstName: Like(`%${searchTerm}%`), isActive: true },
+        { firstLastname: Like(`%${searchTerm}%`), isActive: true },
+        { identificationNumber: Like(`%${searchTerm}%`), isActive: true },
+        { email: Like(`%${searchTerm}%`), isActive: true },
+      ],
+      order: { createdAt: 'DESC' },
+    });
+
+    this.logger.log(`Encontrados ${patients.length} pacientes con el término: ${searchTerm}`);
+    return patients.map(patient => this.mapToResponseDto(patient));
+  }
+
+  async update(id: string, updatePatientDto: UpdatePatientDto): Promise<PatientResponseDto> {
+    this.logger.log(`=== ACTUALIZANDO PACIENTE ===`);
+    this.logger.log(`ID: ${id}`);
+
+    const patient = await this.patientRepository.findOne({
+      where: { id },
+    });
+
+    if (!patient) {
+      this.logger.error(`Paciente no encontrado con ID: ${id}`);
+      throw new NotFoundException('Paciente no encontrado');
+    }
+
+    // Si se está actualizando la identificación, verificar que no exista otro paciente con la misma
+    if (updatePatientDto.identificationType || updatePatientDto.identificationNumber) {
+      const identificationType = updatePatientDto.identificationType || patient.identificationType;
+      const identificationNumber = updatePatientDto.identificationNumber || patient.identificationNumber;
+
+      const existingPatient = await this.patientRepository.findOne({
+        where: {
+          identificationType,
+          identificationNumber,
+          id: Not(id),
+        },
+      });
+
+      if (existingPatient) {
+        this.logger.error(`Ya existe otro paciente con identificación: ${identificationType} ${identificationNumber}`);
+        throw new ConflictException(
+          'Ya existe otro paciente con este tipo y número de identificación',
+        );
+      }
+    }
+
+    try {
+      const updateData = { ...updatePatientDto };
+      if (updatePatientDto.birthDate) {
+        updateData.birthDate = new Date(updatePatientDto.birthDate) as any;
+      }
+
+      await this.patientRepository.update(id, updateData);
+      
+      const updatedPatient = await this.patientRepository.findOne({
+        where: { id },
+      });
+
+      if (!updatedPatient) {
+        throw new NotFoundException('Error al actualizar paciente');
+      }
+
+      this.logger.log(`Paciente actualizado exitosamente: ${updatedPatient.getFullName()}`);
+      return this.mapToResponseDto(updatedPatient);
+    } catch (error) {
+      this.logger.error(`Error al actualizar paciente: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async deactivate(id: string): Promise<void> {
+    this.logger.log(`=== DESACTIVANDO PACIENTE ===`);
+    this.logger.log(`ID: ${id}`);
+
+    const patient = await this.patientRepository.findOne({
+      where: { id },
+    });
+
+    if (!patient) {
+      this.logger.error(`Paciente no encontrado con ID: ${id}`);
+      throw new NotFoundException('Paciente no encontrado');
+    }
+
+    await this.patientRepository.update(id, { isActive: false });
+    this.logger.log(`Paciente desactivado exitosamente: ${patient.getFullName()}`);
+  }
+
+  async reactivate(id: string): Promise<PatientResponseDto> {
+    this.logger.log(`=== REACTIVANDO PACIENTE ===`);
+    this.logger.log(`ID: ${id}`);
+
+    const patient = await this.patientRepository.findOne({
+      where: { id },
+    });
+
+    if (!patient) {
+      this.logger.error(`Paciente no encontrado con ID: ${id}`);
+      throw new NotFoundException('Paciente no encontrado');
+    }
+
+    await this.patientRepository.update(id, { isActive: true });
+    
+    const reactivatedPatient = await this.patientRepository.findOne({
+      where: { id },
+    });
+
+    if (!reactivatedPatient) {
+      throw new NotFoundException('Error al reactivar paciente');
+    }
+
+    this.logger.log(`Paciente reactivado exitosamente: ${reactivatedPatient.getFullName()}`);
+    return this.mapToResponseDto(reactivatedPatient);
+  }
+
+  private mapToResponseDto(patient: Patient): PatientResponseDto {
+    return {
+      id: patient.id,
+      firstName: patient.firstName,
+      secondName: patient.secondName,
+      firstLastname: patient.firstLastname,
+      secondLastname: patient.secondLastname,
+      identificationType: patient.identificationType,
+      identificationNumber: patient.identificationNumber,
+      birthDate: patient.birthDate,
+      age: patient.getAge(),
+      gender: patient.gender,
+      maritalStatus: patient.maritalStatus,
+      educationLevel: patient.educationLevel,
+      phone: patient.phone,
+      email: patient.email,
+      address: patient.address,
+      emergencyContactName: patient.emergencyContactName,
+      emergencyContactPhone: patient.emergencyContactPhone,
+      emergencyContactRelationship: patient.emergencyContactRelationship,
+      bloodType: patient.bloodType,
+      allergies: patient.allergies,
+      observations: patient.observations,
+      isActive: patient.isActive,
+      createdAt: patient.createdAt,
+      updatedAt: patient.updatedAt,
+      fullName: patient.getFullName(),
+      fullIdentification: patient.getFullIdentification(),
+    };
+  }
+}
