@@ -1,0 +1,60 @@
+# Dockerfile optimizado para producción
+# Multi-stage build para reducir tamaño de imagen
+
+# Etapa 1: Build
+FROM node:18-alpine AS builder
+
+# Instalar dependencias del sistema
+RUN apk add --no-cache python3 make g++
+
+WORKDIR /app
+
+# Copiar archivos de dependencias
+COPY package*.json ./
+
+# Instalar todas las dependencias (incluyendo devDependencies)
+RUN npm ci
+
+# Copiar código fuente
+COPY . .
+
+# Construir la aplicación
+RUN npm run build
+
+# Etapa 2: Producción
+FROM node:18-alpine AS production
+
+# Instalar curl para healthcheck
+RUN apk add --no-cache curl
+
+WORKDIR /app
+
+# Copiar archivos de dependencias
+COPY package*.json ./
+
+# Instalar solo dependencias de producción
+RUN npm ci --only=production && npm cache clean --force
+
+# Copiar la aplicación construida desde la etapa builder
+COPY --from=builder /app/dist ./dist
+
+# Crear usuario no-root para seguridad
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nestjs -u 1001 -G nodejs
+
+# Crear directorios necesarios
+RUN mkdir -p /app/logs /app/uploads && \
+    chown -R nestjs:nodejs /app
+
+# Cambiar a usuario no-root
+USER nestjs
+
+# Exponer el puerto
+EXPOSE 3000
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3000/health || exit 1
+
+# Comando para iniciar la aplicación
+CMD ["node", "dist/main.js"]

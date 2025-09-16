@@ -1,0 +1,108 @@
+version: '3.8'
+
+services:
+  # Base de datos PostgreSQL para producción
+  postgres:
+    image: postgres:15-alpine
+    container_name: sysmedic-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sysmedic
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d:ro
+      - ./backups:/backups
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    networks:
+      - sysmedic-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d sysmedic"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Aplicación Backend NestJS para producción
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: sysmedic-backend-prod
+    restart: unless-stopped
+    environment:
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: sysmedic
+      
+      # JWT Configuration
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      
+      # OpenAI Configuration
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      
+      # Application Configuration
+      PORT: 3000
+      NODE_ENV: production
+      
+      # TypeORM Configuration para producción
+      TYPEORM_SYNCHRONIZE: false
+      TYPEORM_LOGGING: false
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sysmedic-network
+    volumes:
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx como reverse proxy (opcional)
+  nginx:
+    image: nginx:alpine
+    container_name: sysmedic-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      - backend
+    networks:
+      - sysmedic-network
+    profiles:
+      - nginx
+
+volumes:
+  postgres_data_prod:
+    driver: local
+
+networks:
+  sysmedic-network:
+    driver: bridge

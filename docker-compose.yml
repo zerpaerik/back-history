@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # Base de datos PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: sysmedic-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sysmedic
+      POSTGRES_USER: sysmedic_user
+      POSTGRES_PASSWORD: sysmedic_password_2025
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - sysmedic-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sysmedic_user -d sysmedic"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Aplicación Backend NestJS
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sysmedic-backend
+    restart: unless-stopped
+    environment:
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: sysmedic_user
+      DB_PASSWORD: sysmedic_password_2025
+      DB_NAME: sysmedic
+      
+      # JWT Configuration
+      JWT_SECRET: sysmedic_peru_jwt_secret_key_2025
+      JWT_EXPIRES_IN: 24h
+      
+      # OpenAI Configuration (usar tu API key)
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      
+      # Application Configuration
+      PORT: 3000
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sysmedic-network
+    volumes:
+      - ./logs:/app/logs
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  sysmedic-network:
+    driver: bridge
