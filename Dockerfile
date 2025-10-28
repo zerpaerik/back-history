@@ -1,5 +1,5 @@
-# Usar Node.js 18 Alpine como imagen base
-FROM node:18-alpine
+# Usar Node.js 20 Alpine como imagen base
+FROM node:20-alpine
 
 # Instalar dependencias del sistema necesarias
 RUN apk add --no-cache python3 make g++
@@ -10,8 +10,8 @@ WORKDIR /app
 # Copiar archivos de dependencias
 COPY package*.json ./
 
-# Instalar dependencias
-RUN npm ci --only=production && npm cache clean --force
+# Instalar TODAS las dependencias para poder compilar
+RUN npm ci
 
 # Copiar el código fuente
 COPY . .
@@ -29,6 +29,10 @@ USER nestjs
 
 # Exponer el puerto
 EXPOSE 3000
+
+# Prune de devDependencies y limpiar cache en imagen final
+ENV NODE_ENV=production
+RUN npm prune --omit=dev && npm cache clean --force
 
 # Comando para iniciar la aplicación
 CMD ["npm", "run", "start:prod"]
