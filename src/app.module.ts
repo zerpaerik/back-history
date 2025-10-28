@@ -25,17 +25,45 @@ import { SpecialtyMedicalHistory } from './medical-records/entities/specialty-me
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get('DB_HOST'),
-        port: configService.get('DB_PORT'),
-        username: configService.get('DB_USERNAME'),
-        password: configService.get('DB_PASSWORD'),
-        database: configService.get('DB_NAME'),
-        entities: [User, Patient, Specialty, Professional, MedicalRecord, Triage, MedicalHistoryBase, SpecialtyMedicalHistory],
-        synchronize: true, // Solo en desarrollo
-        logging: true,
-      }),
+      useFactory: (configService: ConfigService) => {
+        const isProd = configService.get<string>('NODE_ENV') === 'production';
+        const databaseUrl = configService.get<string>('DATABASE_URL');
+        const sslEnabled = (configService.get<string>('DB_SSL') ?? (isProd ? 'true' : 'false')) === 'true';
+        const common = {
+          entities: [
+            User,
+            Patient,
+            Specialty,
+            Professional,
+            MedicalRecord,
+            Triage,
+            MedicalHistoryBase,
+            SpecialtyMedicalHistory,
+          ],
+          synchronize: (configService.get<string>('DB_SYNCHRONIZE') ?? 'true') === 'true',
+          logging: (configService.get<string>('DB_LOGGING') ?? 'true') === 'true',
+        };
+
+        if (databaseUrl) {
+          return {
+            type: 'postgres',
+            url: databaseUrl,
+            ...common,
+            ssl: sslEnabled ? { rejectUnauthorized: false } : undefined,
+          };
+        }
+
+        return {
+          type: 'postgres',
+          host: configService.get<string>('DB_HOST'),
+          port: parseInt(configService.get<string>('DB_PORT') || '5432', 10),
+          username: configService.get<string>('DB_USERNAME'),
+          password: configService.get<string>('DB_PASSWORD'),
+          database: configService.get<string>('DB_NAME'),
+          ...common,
+          ssl: sslEnabled ? { rejectUnauthorized: false } : undefined,
+        };
+      },
       inject: [ConfigService],
     }),
     AuthModule,
