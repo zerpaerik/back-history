@@ -1,16 +1,25 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotImplementedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
+import { toFile } from 'openai/uploads';
 import * as https from 'https';
 
 @Injectable()
 export class AiService {
-  private openai: OpenAI;
+  private openai: OpenAI | null = null;
+  private readonly enabled: boolean = false;
   private readonly logger = new Logger(AiService.name);
 
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
     this.logger.log(`OpenAI API Key loaded: ${apiKey ? `...${apiKey.slice(-4)}` : 'Not found'}`);
+
+    if (!apiKey) {
+      this.logger.warn('OPENAI_API_KEY not set. AI features are disabled.');
+      // leave this.openai as null
+      (this as any).enabled = false;
+      return;
+    }
 
     // Crear un agente HTTPS personalizado para resolver problemas de conexión y regionales
     const httpsAgent = new https.Agent({
@@ -35,6 +44,11 @@ export class AiService {
       // Agregar configuración adicional para bypass regional
       baseURL: 'https://api.openai.com/v1', // Usar URL explícita
     });
+    (this as any).enabled = true;
+  }
+
+  isEnabled(): boolean {
+    return !!this.openai;
   }
 
   /**
@@ -44,13 +58,17 @@ export class AiService {
    * @returns El texto transcrito
    */
   async transcribeAudio(audioBuffer: Buffer, language: string = 'es'): Promise<string> {
+    if (!this.openai) {
+      throw new NotImplementedException('AI features are disabled');
+    }
     try {
       this.logger.log('Iniciando transcripción de audio con Whisper...');
       this.logger.log(`Idioma: ${language}, Tamaño del archivo: ${audioBuffer.length} bytes`);
       
-      // Crear un Blob-like object para OpenAI usando el buffer directamente
-      const audioFile = new Blob([audioBuffer], { type: 'audio/webm' }) as any;
-      audioFile.name = 'audio.webm';
+      // Convertir Buffer a File compatible con SDK
+      const audioFile = await toFile(Buffer.from(audioBuffer), 'audio.webm', {
+        type: 'audio/webm',
+      });
       
       const response = await this.openai.audio.transcriptions.create({
         file: audioFile,
@@ -92,6 +110,9 @@ export class AiService {
    * @returns El texto traducido.
    */
   async translateText(text: string, targetLanguage: string): Promise<string> {
+    if (!this.openai) {
+      throw new NotImplementedException('AI features are disabled');
+    }
     const response = await this.openai.chat.completions.create({
       model: 'gpt-4o', // O 'gpt-3.5-turbo' para una opción más rápida y económica
       messages: [
@@ -141,6 +162,9 @@ export class AiService {
     physicalExamFocus: string[];
     followUpRecommendations: string[];
   }> {
+    if (!this.openai) {
+      throw new NotImplementedException('AI features are disabled');
+    }
     try {
       const patientInfo = `
         ${patientAge ? `Edad: ${patientAge} años` : ''}

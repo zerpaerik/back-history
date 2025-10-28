@@ -22,6 +22,12 @@ import {
       @UploadedFile() audioFile: Express.Multer.File,
       @Body('language') language: string, // Recibimos el idioma desde el body
     ) {
+      if (!this.aiService.isEnabled()) {
+        return {
+          success: false,
+          error: 'Servicio de IA deshabilitado',
+        };
+      }
       this.logger.log('=== NUEVA SOLICITUD DE TRADUCCIÓN ===');
       this.logger.log(`Timestamp: ${new Date().toISOString()}`);
       

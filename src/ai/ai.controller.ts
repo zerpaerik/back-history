@@ -12,6 +12,13 @@ export class AiController {
   @Post('medical-suggestions')
   @UseGuards(JwtAuthGuard)
   async generateMedicalSuggestions(@Body() dto: MedicalSuggestionsDto) {
+    if (!this.aiService.isEnabled()) {
+      return {
+        success: false,
+        error: 'Servicio de IA deshabilitado',
+        message: 'La funcionalidad de IA está desactivada en este entorno.'
+      };
+    }
     try {
       const suggestions = await this.aiService.generateMedicalSuggestions({
         symptoms: dto.symptoms,
@@ -43,6 +50,12 @@ export class AiController {
     @UploadedFile() audioFile: Express.Multer.File,
     @Body('language') language: string = 'es'
   ) {
+    if (!this.aiService.isEnabled()) {
+      return {
+        success: false,
+        error: 'Servicio de IA deshabilitado'
+      };
+    }
     try {
       if (!audioFile) {
         return {
