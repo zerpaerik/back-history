@@ -13,9 +13,15 @@ async function bootstrap() {
     fs.mkdirSync(uploadsDir, { recursive: true });
   }
   
-  // Servir archivos estáticos (firmas, etc.)
+  // Servir archivos estáticos con headers CORS
   app.useStaticAssets(join(__dirname, '..', 'uploads'), {
     prefix: '/uploads/',
+    setHeaders: (res) => {
+      res.set('Access-Control-Allow-Origin', '*');
+      res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    },
   });
   
   // Configuración de CORS más robusta
