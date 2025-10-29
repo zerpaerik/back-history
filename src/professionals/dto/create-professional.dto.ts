@@ -90,6 +90,11 @@ export class CreateProfessionalDto {
   @MaxLength(1000)
   observations?: string;
 
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  signatureUrl?: string; // URL de la firma digital
+
   @IsArray()
   @IsUUID('4', { each: true })
   @IsOptional()

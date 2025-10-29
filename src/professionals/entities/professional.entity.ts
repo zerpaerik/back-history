@@ -80,6 +80,9 @@ export class Professional {
   @Column({ type: 'text', nullable: true })
   observations: string;
 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  signatureUrl: string; // URL de la firma digital del profesional
+
   @Column({ type: 'boolean', default: true })
   @Index()
   isActive: boolean;

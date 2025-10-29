@@ -9,7 +9,13 @@ import {
   Query,
   UseGuards,
   Logger,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 import { ProfessionalsService } from './professionals.service';
 import { CreateProfessionalDto } from './dto/create-professional.dto';
 import { UpdateProfessionalDto } from './dto/update-professional.dto';
@@ -193,5 +199,54 @@ export class ProfessionalsController {
     
     this.logger.log(`✅ Profesional reactivado exitosamente por ${user.email}: ${result.fullName}`);
     return result;
+  }
+
+  @Post('upload-signature')
+  @Roles(UserRole.ADMIN)
+  @UseInterceptors(
+    FileInterceptor('signature', {
+      storage: diskStorage({
+        destination: './uploads/signatures',
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const ext = extname(file.originalname);
+          cb(null, `signature-${uniqueSuffix}${ext}`);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|svg\+xml)$/)) {
+          return cb(new BadRequestException('Solo se permiten imágenes (jpg, jpeg, png, gif, svg)'), false);
+        }
+        cb(null, true);
+      },
+      limits: {
+        fileSize: 2 * 1024 * 1024, // 2MB
+      },
+    }),
+  )
+  async uploadSignature(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: User,
+  ) {
+    this.logger.log(`=== SOLICITUD DE SUBIDA DE FIRMA ===`);
+    this.logger.log(`Usuario: ${user.email} (${user.role})`);
+    this.logger.log(`Archivo: ${file?.originalname}`);
+
+    if (!file) {
+      throw new BadRequestException('No se proporcionó archivo de firma');
+    }
+
+    // Construir URL de la firma
+    const signatureUrl = `/uploads/signatures/${file.filename}`;
+    
+    this.logger.log(`✅ Firma subida exitosamente: ${signatureUrl}`);
+    
+    return {
+      success: true,
+      signatureUrl,
+      filename: file.filename,
+      originalName: file.originalname,
+      size: file.size,
+    };
   }
 }

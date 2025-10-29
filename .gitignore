@@ -10,6 +10,9 @@ coverage/
 .env.*
 !.env.example
 
+# Uploads (archivos subidos por usuarios)
+uploads/
+
 # Logs
 logs/
 *.log
