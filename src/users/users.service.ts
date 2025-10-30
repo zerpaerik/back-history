@@ -37,7 +37,8 @@ export class UsersService {
 
   async findById(id: string): Promise<User | null> {
     return await this.userRepository.findOne({
-      where: { id, isActive: true }
+      where: { id, isActive: true },
+      relations: ['company', 'company.subscription'],
     });
   }
 
@@ -45,7 +46,7 @@ export class UsersService {
     const where = includeInactive ? {} : { isActive: true };
     return await this.userRepository.find({
       where,
-      relations: ['company'],
+      relations: ['company', 'company.subscription'],
       select: ['id', 'username', 'email', 'role', 'companyId', 'isActive', 'createdAt', 'updatedAt'],
       order: { username: 'ASC' },
     });
@@ -77,7 +78,7 @@ export class UsersService {
   async activate(id: string): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { id },
-      relations: ['company'],
+      relations: ['company', 'company.subscription'],
     });
     
     if (!user) {
@@ -88,7 +89,7 @@ export class UsersService {
     
     const updated = await this.userRepository.findOne({
       where: { id },
-      relations: ['company'],
+      relations: ['company', 'company.subscription'],
     });
 
     if (!updated) {
@@ -102,6 +103,7 @@ export class UsersService {
     return await this.userRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.company', 'company')
+      .leftJoinAndSelect('company.subscription', 'subscription')
       .where('user.username ILIKE :term', { term: `%${term}%` })
       .orWhere('user.email ILIKE :term', { term: `%${term}%` })
       .andWhere('user.isActive = :isActive', { isActive: true })
