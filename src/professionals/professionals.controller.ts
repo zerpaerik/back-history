@@ -206,7 +206,13 @@ export class ProfessionalsController {
   @UseInterceptors(
     FileInterceptor('signature', {
       storage: diskStorage({
-        destination: './uploads/signatures',
+        destination: (req, file, cb) => {
+          // En producción usar volumen de Railway, en desarrollo usar carpeta local
+          const dest = process.env.NODE_ENV === 'production'
+            ? '/app/uploads/signatures'
+            : './uploads/signatures';
+          cb(null, dest);
+        },
         filename: (req, file, cb) => {
           const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
           const ext = extname(file.originalname);

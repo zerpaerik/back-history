@@ -41,10 +41,13 @@ export class UsersService {
     });
   }
 
-  async findAll(): Promise<User[]> {
+  async findAll(includeInactive = false): Promise<User[]> {
+    const where = includeInactive ? {} : { isActive: true };
     return await this.userRepository.find({
-      where: { isActive: true },
-      select: ['id', 'username', 'email', 'role', 'isActive', 'createdAt', 'updatedAt']
+      where,
+      relations: ['company'],
+      select: ['id', 'username', 'email', 'role', 'companyId', 'isActive', 'createdAt', 'updatedAt'],
+      order: { username: 'ASC' },
     });
   }
 
@@ -69,5 +72,40 @@ export class UsersService {
     }
 
     await this.userRepository.update(id, { isActive: false });
+  }
+
+  async activate(id: string): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id },
+      relations: ['company'],
+    });
+    
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    await this.userRepository.update(id, { isActive: true });
+    
+    const updated = await this.userRepository.findOne({
+      where: { id },
+      relations: ['company'],
+    });
+
+    if (!updated) {
+      throw new NotFoundException('Error al activar usuario');
+    }
+
+    return updated;
+  }
+
+  async search(term: string): Promise<User[]> {
+    return await this.userRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.company', 'company')
+      .where('user.username ILIKE :term', { term: `%${term}%` })
+      .orWhere('user.email ILIKE :term', { term: `%${term}%` })
+      .andWhere('user.isActive = :isActive', { isActive: true })
+      .orderBy('user.username', 'ASC')
+      .getMany();
   }
 }

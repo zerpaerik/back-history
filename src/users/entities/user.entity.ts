@@ -6,9 +6,12 @@ import {
   UpdateDateColumn,
   BeforeInsert,
   BeforeUpdate,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import * as bcrypt from 'bcryptjs';
+import { Company } from '../../companies/entities/company.entity';
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -38,6 +41,13 @@ export class User {
     default: UserRole.RECEPTIONIST,
   })
   role: UserRole;
+
+  @Column({ type: 'uuid', nullable: true, name: 'company_id' })
+  companyId: string;
+
+  @ManyToOne(() => Company, { eager: true, nullable: true })
+  @JoinColumn({ name: 'company_id' })
+  company: Company;
 
   @Column({ default: true })
   isActive: boolean;

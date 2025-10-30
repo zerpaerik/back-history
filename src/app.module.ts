@@ -11,6 +11,8 @@ import { PatientsModule } from './patients/patients.module';
 import { SpecialtiesModule } from './specialties/specialties.module';
 import { ProfessionalsModule } from './professionals/professionals.module';
 import { MedicalRecordsModule } from './medical-records/medical-records.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
+import { CompaniesModule } from './companies/companies.module';
 import { User } from './users/entities/user.entity';
 import { Patient } from './patients/entities/patient.entity';
 import { Specialty } from './specialties/entities/specialty.entity';
@@ -19,6 +21,8 @@ import { MedicalRecord } from './medical-records/entities/medical-record.entity'
 import { Triage } from './medical-records/entities/triage.entity';
 import { MedicalHistoryBase } from './medical-records/entities/medical-history-base.entity';
 import { SpecialtyMedicalHistory } from './medical-records/entities/specialty-medical-history.entity';
+import { Subscription } from './subscriptions/entities/subscription.entity';
+import { Company } from './companies/entities/company.entity';
 
 @Module({
   imports: [
@@ -39,6 +43,8 @@ import { SpecialtyMedicalHistory } from './medical-records/entities/specialty-me
             Triage,
             MedicalHistoryBase,
             SpecialtyMedicalHistory,
+            Subscription,
+            Company,
           ],
           synchronize: (configService.get<string>('DB_SYNCHRONIZE') ?? 'true') === 'true',
           logging: (configService.get<string>('DB_LOGGING') ?? 'true') === 'true',
@@ -73,6 +79,8 @@ import { SpecialtyMedicalHistory } from './medical-records/entities/specialty-me
     SpecialtiesModule,
     ProfessionalsModule,
     MedicalRecordsModule,
+    SubscriptionsModule,
+    CompaniesModule,
   ],
   controllers: [AppController, AudioController],
   providers: [AppService],

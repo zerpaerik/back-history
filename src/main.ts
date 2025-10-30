@@ -8,13 +8,25 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   
   // Crear carpeta de uploads si no existe
-  const uploadsDir = join(__dirname, '..', 'uploads', 'signatures');
+  const uploadsDir = process.env.NODE_ENV === 'production' 
+    ? '/app/uploads/signatures'
+    : join(__dirname, '..', 'uploads', 'signatures');
+  console.log('📁 Uploads directory path:', uploadsDir);
+  console.log('📁 Current directory:', __dirname);
+  
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
+    console.log('✅ Created uploads directory');
+  } else {
+    console.log('✅ Uploads directory already exists');
   }
   
   // Servir archivos estáticos con headers CORS
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+  const uploadsBase = process.env.NODE_ENV === 'production'
+    ? '/app/uploads'
+    : join(__dirname, '..', 'uploads');
+    
+  app.useStaticAssets(uploadsBase, {
     prefix: '/uploads/',
     setHeaders: (res) => {
       res.set('Access-Control-Allow-Origin', '*');
