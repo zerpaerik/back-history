@@ -23,6 +23,7 @@ import { MedicalHistoryBase } from './medical-records/entities/medical-history-b
 import { SpecialtyMedicalHistory } from './medical-records/entities/specialty-medical-history.entity';
 import { Subscription } from './subscriptions/entities/subscription.entity';
 import { Company } from './companies/entities/company.entity';
+import typeormConfig from './config/typeorm.config';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { Company } from './companies/entities/company.entity';
         const isProd = configService.get<string>('NODE_ENV') === 'production';
         const databaseUrl = configService.get<string>('DATABASE_URL');
         const sslEnabled = (configService.get<string>('DB_SSL') ?? (isProd ? 'true' : 'false')) === 'true';
+        
         const common = {
           entities: [
             User,
@@ -46,13 +48,16 @@ import { Company } from './companies/entities/company.entity';
             Subscription,
             Company,
           ],
-          synchronize: (configService.get<string>('DB_SYNCHRONIZE') ?? 'true') === 'true',
-          logging: (configService.get<string>('DB_LOGGING') ?? 'true') === 'true',
+          // IMPORTANTE: synchronize debe estar en false para usar migraciones
+          synchronize: false,
+          logging: (configService.get<string>('DB_LOGGING') ?? 'false') === 'true',
+          migrations: ['dist/migrations/*.js'],
+          migrationsRun: true, // Ejecutar migraciones automáticamente al iniciar
         };
 
         if (databaseUrl) {
           return {
-            type: 'postgres',
+            type: 'postgres' as const,
             url: databaseUrl,
             ...common,
             ssl: sslEnabled ? { rejectUnauthorized: false } : undefined,
@@ -60,7 +65,7 @@ import { Company } from './companies/entities/company.entity';
         }
 
         return {
-          type: 'postgres',
+          type: 'postgres' as const,
           host: configService.get<string>('DB_HOST'),
           port: parseInt(configService.get<string>('DB_PORT') || '5432', 10),
           username: configService.get<string>('DB_USERNAME'),
