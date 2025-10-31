@@ -6,6 +6,7 @@ export class SpecialtyResponseDto {
   code: string;
   description: string;
   department: string;
+  companyId: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -17,6 +18,7 @@ export class SpecialtyResponseDto {
     this.code = specialty.code;
     this.description = specialty.description;
     this.department = specialty.department;
+    this.companyId = specialty.companyId;
     this.isActive = specialty.isActive;
     this.createdAt = specialty.createdAt;
     this.updatedAt = specialty.updatedAt;

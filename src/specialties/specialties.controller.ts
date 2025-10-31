@@ -38,7 +38,7 @@ export class SpecialtiesController {
     this.logger.log(`Usuario: ${user.email} (${user.role})`);
     this.logger.log(`Datos de especialidad:`, createSpecialtyDto);
 
-    const result = await this.specialtiesService.create(createSpecialtyDto);
+    const result = await this.specialtiesService.create(createSpecialtyDto, user);
     
     this.logger.log(`✅ Especialidad creada exitosamente por ${user.email}`);
     return result;
@@ -54,7 +54,7 @@ export class SpecialtiesController {
     this.logger.log(`Usuario: ${user.email} (${user.role})`);
     this.logger.log(`Incluir inactivas: ${includeInactive === 'true'}`);
 
-    const result = await this.specialtiesService.findAll(includeInactive === 'true');
+    const result = await this.specialtiesService.findAll(user, includeInactive === 'true');
     
     this.logger.log(`✅ Listado de especialidades devuelto a ${user.email}: ${result.length} especialidades`);
     return result;
@@ -70,7 +70,7 @@ export class SpecialtiesController {
     this.logger.log(`Usuario: ${user.email} (${user.role})`);
     this.logger.log(`Término de búsqueda: ${term}`);
 
-    const result = await this.specialtiesService.search(term);
+    const result = await this.specialtiesService.search(term, user);
     
     this.logger.log(`✅ Búsqueda completada para ${user.email}: ${result.length} especialidades encontradas`);
     return result;
@@ -86,7 +86,7 @@ export class SpecialtiesController {
     this.logger.log(`Usuario: ${user.email} (${user.role})`);
     this.logger.log(`Código: ${code}`);
 
-    const result = await this.specialtiesService.findByCode(code);
+    const result = await this.specialtiesService.findByCode(code, user);
     
     this.logger.log(`✅ Especialidad encontrada por código para ${user.email}: ${result.name}`);
     return result;
@@ -102,7 +102,7 @@ export class SpecialtiesController {
     this.logger.log(`Usuario: ${user.email} (${user.role})`);
     this.logger.log(`ID: ${id}`);
 
-    const result = await this.specialtiesService.findOne(id);
+    const result = await this.specialtiesService.findOne(id, user);
     
     this.logger.log(`✅ Especialidad encontrada para ${user.email}: ${result.name}`);
     return result;
@@ -120,7 +120,7 @@ export class SpecialtiesController {
     this.logger.log(`ID: ${id}`);
     this.logger.log(`Datos a actualizar:`, updateSpecialtyDto);
 
-    const result = await this.specialtiesService.update(id, updateSpecialtyDto);
+    const result = await this.specialtiesService.update(id, updateSpecialtyDto, user);
     
     this.logger.log(`✅ Especialidad actualizada exitosamente por ${user.email}`);
     return result;
@@ -136,7 +136,7 @@ export class SpecialtiesController {
     this.logger.log(`Usuario: ${user.email} (${user.role})`);
     this.logger.log(`ID: ${id}`);
 
-    const result = await this.specialtiesService.deactivate(id);
+    const result = await this.specialtiesService.deactivate(id, user);
     
     this.logger.log(`✅ Especialidad desactivada exitosamente por ${user.email}`);
     return result;
@@ -152,7 +152,7 @@ export class SpecialtiesController {
     this.logger.log(`Usuario: ${user.email} (${user.role})`);
     this.logger.log(`ID: ${id}`);
 
-    const result = await this.specialtiesService.reactivate(id);
+    const result = await this.specialtiesService.reactivate(id, user);
     
     this.logger.log(`✅ Especialidad reactivada exitosamente por ${user.email}`);
     return result;

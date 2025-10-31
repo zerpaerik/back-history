@@ -27,6 +27,7 @@ export class PatientResponseDto {
   bloodType?: string;
   allergies?: string;
   observations?: string;
+  companyId: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

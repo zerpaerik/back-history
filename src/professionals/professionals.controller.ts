@@ -48,7 +48,7 @@ export class ProfessionalsController {
       licenseNumber: createProfessionalDto.licenseNumber,
     });
 
-    const result = await this.professionalsService.create(createProfessionalDto);
+    const result = await this.professionalsService.create(createProfessionalDto, user);
     
     this.logger.log(`✅ Profesional creado exitosamente por ${user.email}: ${result.fullName}`);
     return result;
@@ -64,7 +64,7 @@ export class ProfessionalsController {
     this.logger.log(`Usuario: ${user.email} (${user.role})`);
     this.logger.log(`Incluir inactivos: ${includeInactive === 'true'}`);
 
-    const result = await this.professionalsService.findAll(includeInactive === 'true');
+    const result = await this.professionalsService.findAll(user, includeInactive === 'true');
     
     this.logger.log(`✅ Listado de profesionales devuelto a ${user.email}: ${result.length} profesionales`);
     return result;
@@ -80,7 +80,7 @@ export class ProfessionalsController {
     this.logger.log(`Usuario: ${user.email} (${user.role})`);
     this.logger.log(`Término de búsqueda: ${term}`);
 
-    const result = await this.professionalsService.search(term);
+    const result = await this.professionalsService.search(term, user);
     
     this.logger.log(`✅ Búsqueda completada para ${user.email}: ${result.length} profesionales encontrados`);
     return result;
@@ -96,7 +96,7 @@ export class ProfessionalsController {
     this.logger.log(`Usuario: ${user.email} (${user.role})`);
     this.logger.log(`Colegiatura: ${licenseNumber}`);
 
-    const result = await this.professionalsService.findByLicense(licenseNumber);
+    const result = await this.professionalsService.findByLicense(licenseNumber, user);
     
     this.logger.log(`✅ Profesional encontrado por colegiatura para ${user.email}: ${result.fullName}`);
     return result;
@@ -113,7 +113,7 @@ export class ProfessionalsController {
     this.logger.log(`Usuario: ${user.email} (${user.role})`);
     this.logger.log(`Identificación: ${type} - ${number}`);
 
-    const result = await this.professionalsService.findByIdentification(type, number);
+    const result = await this.professionalsService.findByIdentification(type, number, user);
     
     this.logger.log(`✅ Profesional encontrado por identificación para ${user.email}: ${result.fullName}`);
     return result;
@@ -129,7 +129,7 @@ export class ProfessionalsController {
     this.logger.log(`Usuario: ${user.email} (${user.role})`);
     this.logger.log(`Especialidad ID: ${specialtyId}`);
 
-    const result = await this.professionalsService.findBySpecialty(specialtyId);
+    const result = await this.professionalsService.findBySpecialty(specialtyId, user);
     
     this.logger.log(`✅ Profesionales por especialidad encontrados para ${user.email}: ${result.length} profesionales`);
     return result;
@@ -145,7 +145,7 @@ export class ProfessionalsController {
     this.logger.log(`Usuario: ${user.email} (${user.role})`);
     this.logger.log(`ID: ${id}`);
 
-    const result = await this.professionalsService.findOne(id);
+    const result = await this.professionalsService.findOne(id, user);
     
     this.logger.log(`✅ Profesional encontrado para ${user.email}: ${result.fullName}`);
     return result;
@@ -163,7 +163,7 @@ export class ProfessionalsController {
     this.logger.log(`ID: ${id}`);
     this.logger.log(`Datos a actualizar:`, updateProfessionalDto);
 
-    const result = await this.professionalsService.update(id, updateProfessionalDto);
+    const result = await this.professionalsService.update(id, updateProfessionalDto, user);
     
     this.logger.log(`✅ Profesional actualizado exitosamente por ${user.email}: ${result.fullName}`);
     return result;
@@ -179,7 +179,7 @@ export class ProfessionalsController {
     this.logger.log(`Usuario: ${user.email} (${user.role})`);
     this.logger.log(`ID: ${id}`);
 
-    const result = await this.professionalsService.deactivate(id);
+    const result = await this.professionalsService.deactivate(id, user);
     
     this.logger.log(`✅ Profesional desactivado exitosamente por ${user.email}: ${result.fullName}`);
     return result;
@@ -195,7 +195,7 @@ export class ProfessionalsController {
     this.logger.log(`Usuario: ${user.email} (${user.role})`);
     this.logger.log(`ID: ${id}`);
 
-    const result = await this.professionalsService.reactivate(id);
+    const result = await this.professionalsService.reactivate(id, user);
     
     this.logger.log(`✅ Profesional reactivado exitosamente por ${user.email}: ${result.fullName}`);
     return result;

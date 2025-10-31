@@ -6,9 +6,12 @@ import {
   UpdateDateColumn,
   Index,
   ManyToMany,
+  ManyToOne,
   JoinTable,
+  JoinColumn,
 } from 'typeorm';
 import { Specialty } from '../../specialties/entities/specialty.entity';
+import { Company } from '../../companies/entities/company.entity';
 
 export enum IdentificationType {
   DNI = 'DNI',
@@ -82,6 +85,15 @@ export class Professional {
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   signatureUrl: string; // URL de la firma digital del profesional
+
+  // Relación con Empresa
+  @Column({ type: 'uuid', name: 'company_id' })
+  @Index()
+  companyId: string;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company: Company;
 
   @Column({ type: 'boolean', default: true })
   @Index()

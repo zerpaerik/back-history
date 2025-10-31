@@ -12,6 +12,8 @@ import { Specialty } from '../specialties/entities/specialty.entity';
 import { CreateProfessionalDto } from './dto/create-professional.dto';
 import { UpdateProfessionalDto } from './dto/update-professional.dto';
 import { ProfessionalResponseDto } from './dto/professional-response.dto';
+import { User } from '../users/entities/user.entity';
+import { CompanyAccessHelper } from '../common/helpers/company-access.helper';
 
 @Injectable()
 export class ProfessionalsService {
@@ -24,18 +26,21 @@ export class ProfessionalsService {
     private readonly specialtyRepository: Repository<Specialty>,
   ) {}
 
-  async create(createProfessionalDto: CreateProfessionalDto): Promise<ProfessionalResponseDto> {
+  async create(createProfessionalDto: CreateProfessionalDto, user: User): Promise<ProfessionalResponseDto> {
     this.logger.log(`=== CREANDO NUEVO PROFESIONAL ===`);
     this.logger.log(`Nombre: ${createProfessionalDto.firstName} ${createProfessionalDto.firstLastname}`);
     this.logger.log(`Email: ${createProfessionalDto.email}`);
     this.logger.log(`Colegiatura: ${createProfessionalDto.licenseNumber}`);
 
+    const companyId = CompanyAccessHelper.getCompanyIdForCreate(user);
+
     try {
-      // Verificar si ya existe un profesional con la misma identificación
+      // Verificar si ya existe un profesional con la misma identificación en la misma empresa
       const existingByIdentification = await this.professionalRepository.findOne({
         where: {
           identificationType: createProfessionalDto.identificationType,
           identificationNumber: createProfessionalDto.identificationNumber,
+          companyId,
         },
       });
 
@@ -44,9 +49,9 @@ export class ProfessionalsService {
         throw new ConflictException('Ya existe un profesional con esta identificación');
       }
 
-      // Verificar si ya existe un profesional con el mismo número de colegiatura
+      // Verificar si ya existe un profesional con el mismo número de colegiatura en la misma empresa
       const existingByLicense = await this.professionalRepository.findOne({
-        where: { licenseNumber: createProfessionalDto.licenseNumber },
+        where: { licenseNumber: createProfessionalDto.licenseNumber, companyId },
       });
 
       if (existingByLicense) {
@@ -54,9 +59,9 @@ export class ProfessionalsService {
         throw new ConflictException('Ya existe un profesional con este número de colegiatura');
       }
 
-      // Verificar si ya existe un profesional con el mismo email
+      // Verificar si ya existe un profesional con el mismo email en la misma empresa
       const existingByEmail = await this.professionalRepository.findOne({
-        where: { email: createProfessionalDto.email },
+        where: { email: createProfessionalDto.email, companyId },
       });
 
       if (existingByEmail) {
@@ -69,6 +74,7 @@ export class ProfessionalsService {
       const professional = this.professionalRepository.create({
         ...professionalData,
         licenseExpiryDate: licenseExpiryDate ? new Date(licenseExpiryDate) : undefined,
+        companyId,
       });
 
       // Si se proporcionaron especialidades, cargarlas
@@ -95,12 +101,13 @@ export class ProfessionalsService {
     }
   }
 
-  async findAll(includeInactive = false): Promise<ProfessionalResponseDto[]> {
+  async findAll(user: User, includeInactive = false): Promise<ProfessionalResponseDto[]> {
     this.logger.log(`=== LISTANDO PROFESIONALES ===`);
     this.logger.log(`Incluir inactivos: ${includeInactive}`);
 
     try {
-      const whereCondition = includeInactive ? {} : { isActive: true };
+      const companyFilter = CompanyAccessHelper.getCompanyFilter(user);
+      const whereCondition = includeInactive ? companyFilter : { ...companyFilter, isActive: true };
       const professionals = await this.professionalRepository.find({
         where: whereCondition,
         relations: ['specialties'],
@@ -115,7 +122,7 @@ export class ProfessionalsService {
     }
   }
 
-  async findOne(id: string): Promise<ProfessionalResponseDto> {
+  async findOne(id: string, user: User): Promise<ProfessionalResponseDto> {
     this.logger.log(`=== BUSCANDO PROFESIONAL POR ID ===`);
     this.logger.log(`ID: ${id}`);
 
@@ -130,6 +137,9 @@ export class ProfessionalsService {
         throw new NotFoundException('Profesional no encontrado');
       }
 
+      // Validar acceso por empresa
+      CompanyAccessHelper.validateAccess(user, professional.companyId);
+
       this.logger.log(`✅ Profesional encontrado: ${professional.getFullName()}`);
       return new ProfessionalResponseDto(professional);
     } catch (error) {
@@ -138,13 +148,14 @@ export class ProfessionalsService {
     }
   }
 
-  async findByLicense(licenseNumber: string): Promise<ProfessionalResponseDto> {
+  async findByLicense(licenseNumber: string, user: User): Promise<ProfessionalResponseDto> {
     this.logger.log(`=== BUSCANDO PROFESIONAL POR COLEGIATURA ===`);
     this.logger.log(`Colegiatura: ${licenseNumber}`);
 
     try {
+      const companyFilter = CompanyAccessHelper.getCompanyFilter(user);
       const professional = await this.professionalRepository.findOne({
-        where: { licenseNumber, isActive: true },
+        where: { licenseNumber, ...companyFilter, isActive: true },
         relations: ['specialties'],
       });
 
@@ -161,15 +172,17 @@ export class ProfessionalsService {
     }
   }
 
-  async findByIdentification(identificationType: string, identificationNumber: string): Promise<ProfessionalResponseDto> {
+  async findByIdentification(identificationType: string, identificationNumber: string, user: User): Promise<ProfessionalResponseDto> {
     this.logger.log(`=== BUSCANDO PROFESIONAL POR IDENTIFICACIÓN ===`);
     this.logger.log(`Tipo: ${identificationType}, Número: ${identificationNumber}`);
 
     try {
+      const companyFilter = CompanyAccessHelper.getCompanyFilter(user);
       const professional = await this.professionalRepository.findOne({
         where: { 
           identificationType: identificationType as any,
           identificationNumber,
+          ...companyFilter,
           isActive: true 
         },
         relations: ['specialties'],
@@ -188,25 +201,34 @@ export class ProfessionalsService {
     }
   }
 
-  async findBySpecialty(specialtyId: string): Promise<ProfessionalResponseDto[]> {
+  async findBySpecialty(specialtyId: string, user: User): Promise<ProfessionalResponseDto[]> {
     this.logger.log(`=== BUSCANDO PROFESIONALES POR ESPECIALIDAD ===`);
     this.logger.log(`Especialidad ID: ${specialtyId}`);
 
     try {
+      const companyFilter = CompanyAccessHelper.getCompanyFilter(user);
+      
       // Verificar que la especialidad existe
       const specialty = await this.specialtyRepository.findOne({
-        where: { id: specialtyId, isActive: true },
+        where: { id: specialtyId, ...companyFilter, isActive: true },
       });
 
       if (!specialty) {
         throw new NotFoundException('Especialidad no encontrada');
       }
 
-      const professionals = await this.professionalRepository
+      const queryBuilder = this.professionalRepository
         .createQueryBuilder('professional')
         .leftJoinAndSelect('professional.specialties', 'specialty')
         .where('professional.isActive = :isActive', { isActive: true })
-        .andWhere('specialty.id = :specialtyId', { specialtyId })
+        .andWhere('specialty.id = :specialtyId', { specialtyId });
+
+      // Agregar filtro de empresa si no es ADMIN
+      if (companyFilter.companyId) {
+        queryBuilder.andWhere('professional.companyId = :companyId', { companyId: companyFilter.companyId });
+      }
+
+      const professionals = await queryBuilder
         .orderBy('professional.firstLastname', 'ASC')
         .addOrderBy('professional.firstName', 'ASC')
         .getMany();
@@ -219,7 +241,7 @@ export class ProfessionalsService {
     }
   }
 
-  async search(term: string): Promise<ProfessionalResponseDto[]> {
+  async search(term: string, user: User): Promise<ProfessionalResponseDto[]> {
     this.logger.log(`=== BUSCANDO PROFESIONALES ===`);
     this.logger.log(`Término de búsqueda: ${term}`);
 
@@ -228,16 +250,17 @@ export class ProfessionalsService {
     }
 
     try {
+      const companyFilter = CompanyAccessHelper.getCompanyFilter(user);
       const searchTerm = `%${term.trim()}%`;
       const professionals = await this.professionalRepository.find({
         where: [
-          { firstName: Like(searchTerm), isActive: true },
-          { secondName: Like(searchTerm), isActive: true },
-          { firstLastname: Like(searchTerm), isActive: true },
-          { secondLastname: Like(searchTerm), isActive: true },
-          { identificationNumber: Like(searchTerm), isActive: true },
-          { licenseNumber: Like(searchTerm), isActive: true },
-          { email: Like(searchTerm), isActive: true },
+          { firstName: Like(searchTerm), ...companyFilter, isActive: true },
+          { secondName: Like(searchTerm), ...companyFilter, isActive: true },
+          { firstLastname: Like(searchTerm), ...companyFilter, isActive: true },
+          { secondLastname: Like(searchTerm), ...companyFilter, isActive: true },
+          { identificationNumber: Like(searchTerm), ...companyFilter, isActive: true },
+          { licenseNumber: Like(searchTerm), ...companyFilter, isActive: true },
+          { email: Like(searchTerm), ...companyFilter, isActive: true },
         ],
         relations: ['specialties'],
         order: { firstLastname: 'ASC', firstName: 'ASC' },
@@ -251,7 +274,7 @@ export class ProfessionalsService {
     }
   }
 
-  async update(id: string, updateProfessionalDto: UpdateProfessionalDto): Promise<ProfessionalResponseDto> {
+  async update(id: string, updateProfessionalDto: UpdateProfessionalDto, user: User): Promise<ProfessionalResponseDto> {
     this.logger.log(`=== ACTUALIZANDO PROFESIONAL ===`);
     this.logger.log(`ID: ${id}`);
     this.logger.log(`Datos a actualizar:`, updateProfessionalDto);
@@ -267,6 +290,9 @@ export class ProfessionalsService {
         throw new NotFoundException('Profesional no encontrado');
       }
 
+      // Validar acceso por empresa
+      CompanyAccessHelper.validateAccess(user, professional.companyId);
+
       // Verificar conflictos si se está actualizando la identificación
       if (updateProfessionalDto.identificationType && updateProfessionalDto.identificationNumber) {
         if (updateProfessionalDto.identificationType !== professional.identificationType || 
@@ -275,6 +301,7 @@ export class ProfessionalsService {
             where: {
               identificationType: updateProfessionalDto.identificationType,
               identificationNumber: updateProfessionalDto.identificationNumber,
+              companyId: professional.companyId,
             },
           });
 
@@ -287,7 +314,7 @@ export class ProfessionalsService {
       // Verificar conflictos si se está actualizando el número de colegiatura
       if (updateProfessionalDto.licenseNumber && updateProfessionalDto.licenseNumber !== professional.licenseNumber) {
         const existingByLicense = await this.professionalRepository.findOne({
-          where: { licenseNumber: updateProfessionalDto.licenseNumber },
+          where: { licenseNumber: updateProfessionalDto.licenseNumber, companyId: professional.companyId },
         });
 
         if (existingByLicense && existingByLicense.id !== id) {
@@ -298,7 +325,7 @@ export class ProfessionalsService {
       // Verificar conflictos si se está actualizando el email
       if (updateProfessionalDto.email && updateProfessionalDto.email !== professional.email) {
         const existingByEmail = await this.professionalRepository.findOne({
-          where: { email: updateProfessionalDto.email },
+          where: { email: updateProfessionalDto.email, companyId: professional.companyId },
         });
 
         if (existingByEmail && existingByEmail.id !== id) {
@@ -310,7 +337,7 @@ export class ProfessionalsService {
       if (updateProfessionalDto.specialtyIds !== undefined) {
         if (updateProfessionalDto.specialtyIds.length > 0) {
           const specialties = await this.specialtyRepository.find({
-            where: { id: In(updateProfessionalDto.specialtyIds), isActive: true },
+            where: { id: In(updateProfessionalDto.specialtyIds), companyId: professional.companyId, isActive: true },
           });
 
           if (specialties.length !== updateProfessionalDto.specialtyIds.length) {
@@ -340,7 +367,7 @@ export class ProfessionalsService {
     }
   }
 
-  async deactivate(id: string): Promise<ProfessionalResponseDto> {
+  async deactivate(id: string, user: User): Promise<ProfessionalResponseDto> {
     this.logger.log(`=== DESACTIVANDO PROFESIONAL ===`);
     this.logger.log(`ID: ${id}`);
 
@@ -354,6 +381,9 @@ export class ProfessionalsService {
         this.logger.warn(`Profesional con ID '${id}' no encontrado`);
         throw new NotFoundException('Profesional no encontrado');
       }
+
+      // Validar acceso por empresa
+      CompanyAccessHelper.validateAccess(user, professional.companyId);
 
       if (!professional.isActive) {
         this.logger.warn(`Profesional '${professional.getFullName()}' ya está desactivado`);
@@ -374,7 +404,7 @@ export class ProfessionalsService {
     }
   }
 
-  async reactivate(id: string): Promise<ProfessionalResponseDto> {
+  async reactivate(id: string, user: User): Promise<ProfessionalResponseDto> {
     this.logger.log(`=== REACTIVANDO PROFESIONAL ===`);
     this.logger.log(`ID: ${id}`);
 
@@ -388,6 +418,9 @@ export class ProfessionalsService {
         this.logger.warn(`Profesional con ID '${id}' no encontrado`);
         throw new NotFoundException('Profesional no encontrado');
       }
+
+      // Validar acceso por empresa
+      CompanyAccessHelper.validateAccess(user, professional.companyId);
 
       if (professional.isActive) {
         this.logger.warn(`Profesional '${professional.getFullName()}' ya está activo`);

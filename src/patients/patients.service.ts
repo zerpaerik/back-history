@@ -3,6 +3,7 @@ import {
   ConflictException,
   NotFoundException,
   Logger,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, Not } from 'typeorm';
@@ -10,6 +11,8 @@ import { Patient } from './entities/patient.entity';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { PatientResponseDto } from './dto/patient-response.dto';
+import { User } from '../users/entities/user.entity';
+import { CompanyAccessHelper } from '../common/helpers/company-access.helper';
 
 @Injectable()
 export class PatientsService {
@@ -20,16 +23,19 @@ export class PatientsService {
     private readonly patientRepository: Repository<Patient>,
   ) {}
 
-  async create(createPatientDto: CreatePatientDto): Promise<PatientResponseDto> {
+  async create(createPatientDto: CreatePatientDto, user: User): Promise<PatientResponseDto> {
     this.logger.log(`=== CREANDO NUEVO PACIENTE ===`);
     this.logger.log(`Identificación: ${createPatientDto.identificationType} ${createPatientDto.identificationNumber}`);
     this.logger.log(`Nombre: ${createPatientDto.firstName} ${createPatientDto.firstLastname}`);
 
-    // Verificar si ya existe un paciente con la misma identificación
+    const companyId = CompanyAccessHelper.getCompanyIdForCreate(user);
+
+    // Verificar si ya existe un paciente con la misma identificación en la misma empresa
     const existingPatient = await this.patientRepository.findOne({
       where: {
         identificationType: createPatientDto.identificationType,
         identificationNumber: createPatientDto.identificationNumber,
+        companyId,
       },
     });
 
@@ -44,6 +50,7 @@ export class PatientsService {
       const patient = this.patientRepository.create({
         ...createPatientDto,
         birthDate: new Date(createPatientDto.birthDate),
+        companyId,
       });
 
       const savedPatient = await this.patientRepository.save(patient);
@@ -56,11 +63,12 @@ export class PatientsService {
     }
   }
 
-  async findAll(includeInactive = false): Promise<PatientResponseDto[]> {
+  async findAll(user: User, includeInactive = false): Promise<PatientResponseDto[]> {
     this.logger.log(`=== LISTANDO PACIENTES ===`);
     this.logger.log(`Incluir inactivos: ${includeInactive}`);
 
-    const whereCondition = includeInactive ? {} : { isActive: true };
+    const companyFilter = CompanyAccessHelper.getCompanyFilter(user);
+    const whereCondition = includeInactive ? companyFilter : { ...companyFilter, isActive: true };
     
     const patients = await this.patientRepository.find({
       where: whereCondition,
@@ -71,7 +79,7 @@ export class PatientsService {
     return patients.map(patient => this.mapToResponseDto(patient));
   }
 
-  async findById(id: string): Promise<PatientResponseDto> {
+  async findById(id: string, user: User): Promise<PatientResponseDto> {
     this.logger.log(`=== BUSCANDO PACIENTE POR ID ===`);
     this.logger.log(`ID: ${id}`);
 
@@ -84,6 +92,9 @@ export class PatientsService {
       throw new NotFoundException('Paciente no encontrado');
     }
 
+    // Validar acceso por empresa
+    CompanyAccessHelper.validateAccess(user, patient.companyId);
+
     this.logger.log(`Paciente encontrado: ${patient.getFullName()}`);
     return this.mapToResponseDto(patient);
   }
@@ -91,14 +102,18 @@ export class PatientsService {
   async findByIdentification(
     identificationType: string,
     identificationNumber: string,
+    user: User,
   ): Promise<PatientResponseDto> {
     this.logger.log(`=== BUSCANDO PACIENTE POR IDENTIFICACIÓN ===`);
     this.logger.log(`Identificación: ${identificationType} ${identificationNumber}`);
+
+    const companyFilter = CompanyAccessHelper.getCompanyFilter(user);
 
     const patient = await this.patientRepository.findOne({
       where: {
         identificationType: identificationType as any,
         identificationNumber,
+        ...companyFilter,
         isActive: true,
       },
     });
@@ -112,16 +127,18 @@ export class PatientsService {
     return this.mapToResponseDto(patient);
   }
 
-  async searchPatients(searchTerm: string): Promise<PatientResponseDto[]> {
+  async searchPatients(searchTerm: string, user: User): Promise<PatientResponseDto[]> {
     this.logger.log(`=== BUSCANDO PACIENTES ===`);
     this.logger.log(`Término de búsqueda: ${searchTerm}`);
 
+    const companyFilter = CompanyAccessHelper.getCompanyFilter(user);
+
     const patients = await this.patientRepository.find({
       where: [
-        { firstName: Like(`%${searchTerm}%`), isActive: true },
-        { firstLastname: Like(`%${searchTerm}%`), isActive: true },
-        { identificationNumber: Like(`%${searchTerm}%`), isActive: true },
-        { email: Like(`%${searchTerm}%`), isActive: true },
+        { firstName: Like(`%${searchTerm}%`), ...companyFilter, isActive: true },
+        { firstLastname: Like(`%${searchTerm}%`), ...companyFilter, isActive: true },
+        { identificationNumber: Like(`%${searchTerm}%`), ...companyFilter, isActive: true },
+        { email: Like(`%${searchTerm}%`), ...companyFilter, isActive: true },
       ],
       order: { createdAt: 'DESC' },
     });
@@ -130,7 +147,7 @@ export class PatientsService {
     return patients.map(patient => this.mapToResponseDto(patient));
   }
 
-  async update(id: string, updatePatientDto: UpdatePatientDto): Promise<PatientResponseDto> {
+  async update(id: string, updatePatientDto: UpdatePatientDto, user: User): Promise<PatientResponseDto> {
     this.logger.log(`=== ACTUALIZANDO PACIENTE ===`);
     this.logger.log(`ID: ${id}`);
 
@@ -143,6 +160,9 @@ export class PatientsService {
       throw new NotFoundException('Paciente no encontrado');
     }
 
+    // Validar acceso por empresa
+    CompanyAccessHelper.validateAccess(user, patient.companyId);
+
     // Si se está actualizando la identificación, verificar que no exista otro paciente con la misma
     if (updatePatientDto.identificationType || updatePatientDto.identificationNumber) {
       const identificationType = updatePatientDto.identificationType || patient.identificationType;
@@ -152,6 +172,7 @@ export class PatientsService {
         where: {
           identificationType,
           identificationNumber,
+          companyId: patient.companyId,
           id: Not(id),
         },
       });
@@ -188,7 +209,7 @@ export class PatientsService {
     }
   }
 
-  async deactivate(id: string): Promise<void> {
+  async deactivate(id: string, user: User): Promise<void> {
     this.logger.log(`=== DESACTIVANDO PACIENTE ===`);
     this.logger.log(`ID: ${id}`);
 
@@ -201,11 +222,14 @@ export class PatientsService {
       throw new NotFoundException('Paciente no encontrado');
     }
 
+    // Validar acceso por empresa
+    CompanyAccessHelper.validateAccess(user, patient.companyId);
+
     await this.patientRepository.update(id, { isActive: false });
     this.logger.log(`Paciente desactivado exitosamente: ${patient.getFullName()}`);
   }
 
-  async reactivate(id: string): Promise<PatientResponseDto> {
+  async reactivate(id: string, user: User): Promise<PatientResponseDto> {
     this.logger.log(`=== REACTIVANDO PACIENTE ===`);
     this.logger.log(`ID: ${id}`);
 
@@ -217,6 +241,9 @@ export class PatientsService {
       this.logger.error(`Paciente no encontrado con ID: ${id}`);
       throw new NotFoundException('Paciente no encontrado');
     }
+
+    // Validar acceso por empresa
+    CompanyAccessHelper.validateAccess(user, patient.companyId);
 
     await this.patientRepository.update(id, { isActive: true });
     
@@ -255,6 +282,7 @@ export class PatientsService {
       bloodType: patient.bloodType,
       allergies: patient.allergies,
       observations: patient.observations,
+      companyId: patient.companyId,
       isActive: patient.isActive,
       createdAt: patient.createdAt,
       updatedAt: patient.updatedAt,

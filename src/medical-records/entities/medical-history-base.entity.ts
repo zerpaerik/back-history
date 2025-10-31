@@ -5,9 +5,12 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToOne,
+  ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { MedicalRecord } from './medical-record.entity';
+import { Company } from '../../companies/entities/company.entity';
 
 // Enums para antecedentes según normas peruanas
 export enum BloodType {
@@ -183,6 +186,15 @@ export class MedicalHistoryBase {
   // === OBSERVACIONES GENERALES ===
   @Column({ type: 'text', nullable: true })
   observations: string;
+
+  // Relación con Empresa
+  @Column({ type: 'uuid', name: 'company_id' })
+  @Index()
+  companyId: string;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company: Company;
 
   @Column({ type: 'boolean', default: true })
   isActive: boolean;

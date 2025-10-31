@@ -42,7 +42,7 @@ export class PatientsController {
     this.logger.log(`Paciente: ${createPatientDto.firstName} ${createPatientDto.firstLastname}`);
 
     try {
-      const patient = await this.patientsService.create(createPatientDto);
+      const patient = await this.patientsService.create(createPatientDto, user);
       this.logger.log(`Paciente creado exitosamente: ${patient.id}`);
       return patient;
     } catch (error) {
@@ -61,7 +61,7 @@ export class PatientsController {
     this.logger.log(`Usuario: ${user.email} (${user.role})`);
     this.logger.log(`Incluir inactivos: ${includeInactive === 'true'}`);
 
-    const patients = await this.patientsService.findAll(includeInactive === 'true');
+    const patients = await this.patientsService.findAll(user, includeInactive === 'true');
     this.logger.log(`Devolviendo ${patients.length} pacientes`);
     return patients;
   }
@@ -81,7 +81,7 @@ export class PatientsController {
       return [];
     }
 
-    const patients = await this.patientsService.searchPatients(searchTerm.trim());
+    const patients = await this.patientsService.searchPatients(searchTerm.trim(), user);
     this.logger.log(`Encontrados ${patients.length} pacientes`);
     return patients;
   }
@@ -100,6 +100,7 @@ export class PatientsController {
     const patient = await this.patientsService.findByIdentification(
       identificationType,
       identificationNumber,
+      user,
     );
     this.logger.log(`Paciente encontrado: ${patient.fullName}`);
     return patient;
@@ -115,7 +116,7 @@ export class PatientsController {
     this.logger.log(`Usuario: ${user.email} (${user.role})`);
     this.logger.log(`ID: ${id}`);
 
-    const patient = await this.patientsService.findById(id);
+    const patient = await this.patientsService.findById(id, user);
     this.logger.log(`Paciente encontrado: ${patient.fullName}`);
     return patient;
   }
@@ -132,7 +133,7 @@ export class PatientsController {
     this.logger.log(`ID del paciente: ${id}`);
 
     try {
-      const patient = await this.patientsService.update(id, updatePatientDto);
+      const patient = await this.patientsService.update(id, updatePatientDto, user);
       this.logger.log(`Paciente actualizado exitosamente: ${patient.fullName}`);
       return patient;
     } catch (error) {
@@ -153,7 +154,7 @@ export class PatientsController {
     this.logger.log(`ID del paciente: ${id}`);
 
     try {
-      await this.patientsService.deactivate(id);
+      await this.patientsService.deactivate(id, user);
       this.logger.log(`Paciente desactivado exitosamente`);
     } catch (error) {
       this.logger.error(`Error al desactivar paciente: ${error.message}`);
@@ -172,7 +173,7 @@ export class PatientsController {
     this.logger.log(`ID del paciente: ${id}`);
 
     try {
-      const patient = await this.patientsService.reactivate(id);
+      const patient = await this.patientsService.reactivate(id, user);
       this.logger.log(`Paciente reactivado exitosamente: ${patient.fullName}`);
       return patient;
     } catch (error) {

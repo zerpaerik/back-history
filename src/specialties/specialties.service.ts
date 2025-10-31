@@ -11,6 +11,8 @@ import { Specialty } from './entities/specialty.entity';
 import { CreateSpecialtyDto } from './dto/create-specialty.dto';
 import { UpdateSpecialtyDto } from './dto/update-specialty.dto';
 import { SpecialtyResponseDto } from './dto/specialty-response.dto';
+import { User } from '../users/entities/user.entity';
+import { CompanyAccessHelper } from '../common/helpers/company-access.helper';
 
 @Injectable()
 export class SpecialtiesService {
@@ -21,15 +23,17 @@ export class SpecialtiesService {
     private readonly specialtyRepository: Repository<Specialty>,
   ) {}
 
-  async create(createSpecialtyDto: CreateSpecialtyDto): Promise<SpecialtyResponseDto> {
+  async create(createSpecialtyDto: CreateSpecialtyDto, user: User): Promise<SpecialtyResponseDto> {
     this.logger.log(`=== CREANDO NUEVA ESPECIALIDAD ===`);
     this.logger.log(`Nombre: ${createSpecialtyDto.name}`);
     this.logger.log(`Código: ${createSpecialtyDto.code}`);
 
+    const companyId = CompanyAccessHelper.getCompanyIdForCreate(user);
+
     try {
-      // Verificar si ya existe una especialidad con el mismo nombre
+      // Verificar si ya existe una especialidad con el mismo nombre en la misma empresa
       const existingByName = await this.specialtyRepository.findOne({
-        where: { name: createSpecialtyDto.name },
+        where: { name: createSpecialtyDto.name, companyId },
       });
 
       if (existingByName) {
@@ -37,9 +41,9 @@ export class SpecialtiesService {
         throw new ConflictException('Ya existe una especialidad con este nombre');
       }
 
-      // Verificar si ya existe una especialidad con el mismo código
+      // Verificar si ya existe una especialidad con el mismo código en la misma empresa
       const existingByCode = await this.specialtyRepository.findOne({
-        where: { code: createSpecialtyDto.code },
+        where: { code: createSpecialtyDto.code, companyId },
       });
 
       if (existingByCode) {
@@ -48,7 +52,7 @@ export class SpecialtiesService {
       }
 
       // Crear la nueva especialidad
-      const specialty = this.specialtyRepository.create(createSpecialtyDto);
+      const specialty = this.specialtyRepository.create({ ...createSpecialtyDto, companyId });
       const savedSpecialty = await this.specialtyRepository.save(specialty);
 
       this.logger.log(`✅ Especialidad creada exitosamente con ID: ${savedSpecialty.id}`);
@@ -59,12 +63,13 @@ export class SpecialtiesService {
     }
   }
 
-  async findAll(includeInactive = false): Promise<SpecialtyResponseDto[]> {
+  async findAll(user: User, includeInactive = false): Promise<SpecialtyResponseDto[]> {
     this.logger.log(`=== LISTANDO ESPECIALIDADES ===`);
     this.logger.log(`Incluir inactivas: ${includeInactive}`);
 
     try {
-      const whereCondition = includeInactive ? {} : { isActive: true };
+      const companyFilter = CompanyAccessHelper.getCompanyFilter(user);
+      const whereCondition = includeInactive ? companyFilter : { ...companyFilter, isActive: true };
       const specialties = await this.specialtyRepository.find({
         where: whereCondition,
         order: { name: 'ASC' },
@@ -78,7 +83,7 @@ export class SpecialtiesService {
     }
   }
 
-  async findOne(id: string): Promise<SpecialtyResponseDto> {
+  async findOne(id: string, user: User): Promise<SpecialtyResponseDto> {
     this.logger.log(`=== BUSCANDO ESPECIALIDAD POR ID ===`);
     this.logger.log(`ID: ${id}`);
 
@@ -92,6 +97,8 @@ export class SpecialtiesService {
         throw new NotFoundException('Especialidad no encontrada');
       }
 
+      CompanyAccessHelper.validateAccess(user, specialty.companyId);
+
       this.logger.log(`✅ Especialidad encontrada: ${specialty.name}`);
       return new SpecialtyResponseDto(specialty);
     } catch (error) {
@@ -100,13 +107,14 @@ export class SpecialtiesService {
     }
   }
 
-  async findByCode(code: string): Promise<SpecialtyResponseDto> {
+  async findByCode(code: string, user: User): Promise<SpecialtyResponseDto> {
     this.logger.log(`=== BUSCANDO ESPECIALIDAD POR CÓDIGO ===`);
     this.logger.log(`Código: ${code}`);
 
     try {
+      const companyFilter = CompanyAccessHelper.getCompanyFilter(user);
       const specialty = await this.specialtyRepository.findOne({
-        where: { code, isActive: true },
+        where: { code, ...companyFilter, isActive: true },
       });
 
       if (!specialty) {
@@ -122,7 +130,7 @@ export class SpecialtiesService {
     }
   }
 
-  async search(term: string): Promise<SpecialtyResponseDto[]> {
+  async search(term: string, user: User): Promise<SpecialtyResponseDto[]> {
     this.logger.log(`=== BUSCANDO ESPECIALIDADES ===`);
     this.logger.log(`Término de búsqueda: ${term}`);
 
@@ -131,13 +139,14 @@ export class SpecialtiesService {
     }
 
     try {
+      const companyFilter = CompanyAccessHelper.getCompanyFilter(user);
       const searchTerm = `%${term.trim()}%`;
       const specialties = await this.specialtyRepository.find({
         where: [
-          { name: Like(searchTerm), isActive: true },
-          { code: Like(searchTerm), isActive: true },
-          { description: Like(searchTerm), isActive: true },
-          { department: Like(searchTerm), isActive: true },
+          { name: Like(searchTerm), ...companyFilter, isActive: true },
+          { code: Like(searchTerm), ...companyFilter, isActive: true },
+          { description: Like(searchTerm), ...companyFilter, isActive: true },
+          { department: Like(searchTerm), ...companyFilter, isActive: true },
         ],
         order: { name: 'ASC' },
       });
@@ -150,7 +159,7 @@ export class SpecialtiesService {
     }
   }
 
-  async update(id: string, updateSpecialtyDto: UpdateSpecialtyDto): Promise<SpecialtyResponseDto> {
+  async update(id: string, updateSpecialtyDto: UpdateSpecialtyDto, user: User): Promise<SpecialtyResponseDto> {
     this.logger.log(`=== ACTUALIZANDO ESPECIALIDAD ===`);
     this.logger.log(`ID: ${id}`);
     this.logger.log(`Datos a actualizar:`, updateSpecialtyDto);
@@ -165,10 +174,12 @@ export class SpecialtiesService {
         throw new NotFoundException('Especialidad no encontrada');
       }
 
+      CompanyAccessHelper.validateAccess(user, specialty.companyId);
+
       // Verificar conflictos si se está actualizando el nombre
       if (updateSpecialtyDto.name && updateSpecialtyDto.name !== specialty.name) {
         const existingByName = await this.specialtyRepository.findOne({
-          where: { name: updateSpecialtyDto.name },
+          where: { name: updateSpecialtyDto.name, companyId: specialty.companyId },
         });
 
         if (existingByName && existingByName.id !== id) {
@@ -180,7 +191,7 @@ export class SpecialtiesService {
       // Verificar conflictos si se está actualizando el código
       if (updateSpecialtyDto.code && updateSpecialtyDto.code !== specialty.code) {
         const existingByCode = await this.specialtyRepository.findOne({
-          where: { code: updateSpecialtyDto.code },
+          where: { code: updateSpecialtyDto.code, companyId: specialty.companyId },
         });
 
         if (existingByCode && existingByCode.id !== id) {
@@ -203,7 +214,7 @@ export class SpecialtiesService {
     }
   }
 
-  async deactivate(id: string): Promise<SpecialtyResponseDto> {
+  async deactivate(id: string, user: User): Promise<SpecialtyResponseDto> {
     this.logger.log(`=== DESACTIVANDO ESPECIALIDAD ===`);
     this.logger.log(`ID: ${id}`);
 
@@ -216,6 +227,8 @@ export class SpecialtiesService {
         this.logger.warn(`Especialidad con ID '${id}' no encontrada`);
         throw new NotFoundException('Especialidad no encontrada');
       }
+
+      CompanyAccessHelper.validateAccess(user, specialty.companyId);
 
       if (!specialty.isActive) {
         this.logger.warn(`Especialidad '${specialty.name}' ya está desactivada`);
@@ -235,7 +248,7 @@ export class SpecialtiesService {
     }
   }
 
-  async reactivate(id: string): Promise<SpecialtyResponseDto> {
+  async reactivate(id: string, user: User): Promise<SpecialtyResponseDto> {
     this.logger.log(`=== REACTIVANDO ESPECIALIDAD ===`);
     this.logger.log(`ID: ${id}`);
 
@@ -248,6 +261,8 @@ export class SpecialtiesService {
         this.logger.warn(`Especialidad con ID '${id}' no encontrada`);
         throw new NotFoundException('Especialidad no encontrada');
       }
+
+      CompanyAccessHelper.validateAccess(user, specialty.companyId);
 
       if (specialty.isActive) {
         this.logger.warn(`Especialidad '${specialty.name}' ya está activa`);

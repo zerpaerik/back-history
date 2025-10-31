@@ -17,6 +17,7 @@ export class ProfessionalResponseDto {
   licenseExpiryDate: Date;
   observations: string;
   signatureUrl: string; // URL de la firma digital
+  companyId: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -42,6 +43,7 @@ export class ProfessionalResponseDto {
     this.licenseExpiryDate = professional.licenseExpiryDate;
     this.observations = professional.observations;
     this.signatureUrl = professional.signatureUrl; // Incluir URL de firma
+    this.companyId = professional.companyId;
     this.isActive = professional.isActive;
     this.createdAt = professional.createdAt;
     this.updatedAt = professional.updatedAt;

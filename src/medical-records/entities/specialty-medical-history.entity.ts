@@ -7,9 +7,11 @@ import {
   OneToOne,
   JoinColumn,
   ManyToOne,
+  Index,
 } from 'typeorm';
 import { MedicalRecord } from './medical-record.entity';
 import { Specialty } from '../../specialties/entities/specialty.entity';
+import { Company } from '../../companies/entities/company.entity';
 
 // Enums específicos para historias clínicas peruanas
 export enum SpecialtyHistoryType {
@@ -464,6 +466,15 @@ export class SpecialtyMedicalHistory {
 
   @Column({ type: 'text', nullable: true })
   observations: string;
+
+  // Relación con Empresa
+  @Column({ type: 'uuid', name: 'company_id' })
+  @Index()
+  companyId: string;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company: Company;
 
   @Column({ type: 'boolean', default: true })
   isActive: boolean;

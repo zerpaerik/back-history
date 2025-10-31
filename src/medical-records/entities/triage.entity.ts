@@ -5,7 +5,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToOne,
+  ManyToOne,
+  JoinColumn,
+  Index,
 } from 'typeorm';
+import { Company } from '../../companies/entities/company.entity';
 @Entity('triages')
 export class Triage {
   @PrimaryGeneratedColumn('uuid')
@@ -31,6 +35,15 @@ export class Triage {
 
   @Column({ type: 'text', nullable: true })
   observations: string; // Observaciones del triaje
+
+  // Relación con Empresa
+  @Column({ type: 'uuid', name: 'company_id' })
+  @Index()
+  companyId: string;
+
+  @ManyToOne(() => Company)
+  @JoinColumn({ name: 'company_id' })
+  company: Company;
 
   @CreateDateColumn()
   createdAt: Date;
