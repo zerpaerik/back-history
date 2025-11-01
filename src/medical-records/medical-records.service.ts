@@ -446,7 +446,10 @@ export class MedicalRecordsService {
       } else {
         // Crear nuevo triaje
         this.logger.log('Creando nuevo triaje');
-        const newTriage = this.triageRepository.create(triageData);
+        const newTriage = this.triageRepository.create({
+          ...triageData,
+          companyId: medicalRecord.companyId,
+        });
         const savedTriage = await this.triageRepository.save(newTriage);
         triage = Array.isArray(savedTriage) ? savedTriage[0] : savedTriage;
         
