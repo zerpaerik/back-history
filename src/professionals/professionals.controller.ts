@@ -35,7 +35,7 @@ export class ProfessionalsController {
   constructor(private readonly professionalsService: ProfessionalsService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.DOCTOR, UserRole.NURSE, UserRole.RECEPTIONIST)
   async create(
     @Body() createProfessionalDto: CreateProfessionalDto,
     @CurrentUser() user: User,
@@ -152,7 +152,7 @@ export class ProfessionalsController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.DOCTOR, UserRole.NURSE, UserRole.RECEPTIONIST)
   async update(
     @Param('id') id: string,
     @Body() updateProfessionalDto: UpdateProfessionalDto,
@@ -170,7 +170,7 @@ export class ProfessionalsController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.DOCTOR, UserRole.NURSE, UserRole.RECEPTIONIST)
   async deactivate(
     @Param('id') id: string,
     @CurrentUser() user: User,
@@ -186,7 +186,7 @@ export class ProfessionalsController {
   }
 
   @Patch(':id/reactivate')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.DOCTOR, UserRole.NURSE, UserRole.RECEPTIONIST)
   async reactivate(
     @Param('id') id: string,
     @CurrentUser() user: User,

@@ -29,7 +29,7 @@ export class SpecialtiesController {
   constructor(private readonly specialtiesService: SpecialtiesService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.DOCTOR, UserRole.NURSE, UserRole.RECEPTIONIST)
   async create(
     @Body() createSpecialtyDto: CreateSpecialtyDto,
     @CurrentUser() user: User,
@@ -109,7 +109,7 @@ export class SpecialtiesController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.DOCTOR, UserRole.NURSE, UserRole.RECEPTIONIST)
   async update(
     @Param('id') id: string,
     @Body() updateSpecialtyDto: UpdateSpecialtyDto,
@@ -127,7 +127,7 @@ export class SpecialtiesController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.DOCTOR, UserRole.NURSE, UserRole.RECEPTIONIST)
   async deactivate(
     @Param('id') id: string,
     @CurrentUser() user: User,
@@ -143,7 +143,7 @@ export class SpecialtiesController {
   }
 
   @Patch(':id/reactivate')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.DOCTOR, UserRole.NURSE, UserRole.RECEPTIONIST)
   async reactivate(
     @Param('id') id: string,
     @CurrentUser() user: User,
