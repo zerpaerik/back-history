@@ -475,47 +475,49 @@ export class MedicalRecordsService {
   }
 
   // Obtener estadísticas de historias clínicas
-  async getStats(): Promise<any> {
+  async getStats(user: User): Promise<any> {
     try {
       this.logger.log('📊 Obteniendo estadísticas de historias clínicas');
+      this.logger.log(`Usuario: ${user.email} (${user.role})`);
+      
+      const companyFilter = CompanyAccessHelper.getCompanyFilter(user);
+      const baseWhere = { ...companyFilter, isActive: true };
       
       const [total, pending, inProgress, completed, withTriage, withoutTriage] = await Promise.all([
         // Total de historias clínicas activas
-        this.medicalRecordRepository.count({ where: { isActive: true } }),
+        this.medicalRecordRepository.count({ where: baseWhere }),
         
         // Historias pendientes
         this.medicalRecordRepository.count({ 
           where: { 
+            ...baseWhere,
             status: MedicalRecordStatus.PENDING,
-            isActive: true 
           } 
         }),
         
         // Historias en progreso
         this.medicalRecordRepository.count({ 
           where: { 
+            ...baseWhere,
             status: MedicalRecordStatus.IN_PROGRESS,
-            isActive: true 
           } 
         }),
         
         // Historias completadas
         this.medicalRecordRepository.count({ 
           where: { 
+            ...baseWhere,
             status: MedicalRecordStatus.COMPLETED,
-            isActive: true 
           } 
         }),
         
         // Historias con triaje
-        this.medicalRecordRepository.createQueryBuilder('medicalRecord')
-          .where('medicalRecord.isActive = :isActive', { isActive: true })
+        this.buildStatsQuery(companyFilter)
           .andWhere('medicalRecord.triage IS NOT NULL')
           .getCount(),
         
         // Historias sin triaje
-        this.medicalRecordRepository.createQueryBuilder('medicalRecord')
-          .where('medicalRecord.isActive = :isActive', { isActive: true })
+        this.buildStatsQuery(companyFilter)
           .andWhere('medicalRecord.triage IS NULL')
           .getCount()
       ]);
@@ -536,6 +538,17 @@ export class MedicalRecordsService {
       this.logger.error('❌ Error al obtener estadísticas:', error.message);
       throw error;
     }
+  }
+
+  private buildStatsQuery(companyFilter: { companyId?: string }) {
+    const query = this.medicalRecordRepository.createQueryBuilder('medicalRecord')
+      .where('medicalRecord.isActive = :isActive', { isActive: true });
+    
+    if (companyFilter.companyId) {
+      query.andWhere('medicalRecord.companyId = :companyId', { companyId: companyFilter.companyId });
+    }
+    
+    return query;
   }
 
   // === MÉTODOS PARA ANTECEDENTES (HISTORIAL BASE) ===

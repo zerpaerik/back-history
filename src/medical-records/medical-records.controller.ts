@@ -143,7 +143,7 @@ export class MedicalRecordsController {
     this.logger.log(`=== SOLICITUD DE ESTADÍSTICAS ===`);
     this.logger.log(`Usuario: ${user.email} (${user.role})`);
 
-    const stats = await this.medicalRecordsService.getStats();
+    const stats = await this.medicalRecordsService.getStats(user);
     
     this.logger.log(`✅ Estadísticas obtenidas para ${user.email}`);
     return stats;
