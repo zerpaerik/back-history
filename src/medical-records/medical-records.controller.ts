@@ -49,7 +49,7 @@ export class MedicalRecordsController {
       hasTriageData: !!createMedicalRecordDto.triage,
     });
 
-    const result = await this.medicalRecordsService.create(createMedicalRecordDto);
+    const result = await this.medicalRecordsService.create(createMedicalRecordDto, user);
     
     this.logger.log(`✅ Historia clínica creada exitosamente por ${user.email}: ${result.recordNumber}`);
     return result;
@@ -65,7 +65,7 @@ export class MedicalRecordsController {
     this.logger.log(`Usuario: ${user.email} (${user.role})`);
     this.logger.log(`Incluir inactivas: ${includeInactive === 'true'}`);
 
-    const result = await this.medicalRecordsService.findAll(includeInactive === 'true');
+    const result = await this.medicalRecordsService.findAll(user, includeInactive === 'true');
     
     this.logger.log(`✅ Listado de historias clínicas devuelto a ${user.email}: ${result.length} historias`);
     return result;

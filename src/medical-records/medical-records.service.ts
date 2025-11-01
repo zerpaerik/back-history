@@ -22,6 +22,8 @@ import { UpdateMedicalHistoryBaseDto } from './dto/update-medical-history-base.d
 import { CreateSpecialtyMedicalHistoryDto } from './dto/create-specialty-medical-history.dto';
 import { UpdateSpecialtyMedicalHistoryDto } from './dto/update-specialty-medical-history.dto';
 import { MedicalHistoryBaseResponseDto, SpecialtyMedicalHistoryResponseDto } from './dto/medical-history-response.dto';
+import { User } from '../users/entities/user.entity';
+import { CompanyAccessHelper } from '../common/helpers/company-access.helper';
 
 @Injectable()
 export class MedicalRecordsService {
@@ -44,11 +46,14 @@ export class MedicalRecordsService {
     private readonly specialtyRepository: Repository<Specialty>,
   ) {}
 
-  async create(createMedicalRecordDto: CreateMedicalRecordDto): Promise<MedicalRecordResponseDto> {
+  async create(createMedicalRecordDto: CreateMedicalRecordDto, user: User): Promise<MedicalRecordResponseDto> {
     this.logger.log(`=== CREANDO NUEVA HISTORIA CLÍNICA ===`);
+    this.logger.log(`Usuario: ${user.email} (${user.role})`);
     this.logger.log(`Paciente ID: ${createMedicalRecordDto.patientId}`);
     this.logger.log(`Profesional ID: ${createMedicalRecordDto.professionalId}`);
     this.logger.log(`Especialidad ID: ${createMedicalRecordDto.specialtyId}`);
+
+    const companyId = CompanyAccessHelper.getCompanyIdForCreate(user);
 
     try {
       // Verificar que el paciente existe y está activo
@@ -96,7 +101,7 @@ export class MedicalRecordsService {
       // Crear el triaje si se proporcionó
       let triage: Triage | null = null;
       if (createMedicalRecordDto.triage && this.hasTriageData(createMedicalRecordDto.triage)) {
-        triage = this.triageRepository.create(createMedicalRecordDto.triage);
+        triage = this.triageRepository.create({ ...createMedicalRecordDto.triage, companyId });
         await this.triageRepository.save(triage);
         this.logger.log(`Triaje creado con ID: ${triage.id}`);
       }
@@ -127,6 +132,7 @@ export class MedicalRecordsService {
         diagnosis: createMedicalRecordDto.diagnosis,
         treatment: createMedicalRecordDto.treatment,
         observations: createMedicalRecordDto.observations,
+        companyId,
       };
       
       const medicalRecord = this.medicalRecordRepository.create(medicalRecordData);
@@ -153,12 +159,15 @@ export class MedicalRecordsService {
     }
   }
 
-  async findAll(includeInactive = false): Promise<MedicalRecordResponseDto[]> {
+  async findAll(user: User, includeInactive = false): Promise<MedicalRecordResponseDto[]> {
     this.logger.log(`=== LISTANDO HISTORIAS CLÍNICAS ===`);
+    this.logger.log(`Usuario: ${user.email} (${user.role})`);
     this.logger.log(`Incluir inactivas: ${includeInactive}`);
 
     try {
-      const whereCondition = includeInactive ? {} : { isActive: true };
+      const companyFilter = CompanyAccessHelper.getCompanyFilter(user);
+      const whereCondition = includeInactive ? companyFilter : { ...companyFilter, isActive: true };
+      
       const medicalRecords = await this.medicalRecordRepository.find({
         where: whereCondition,
         relations: ['patient', 'professional', 'specialty', 'triage'],
@@ -557,6 +566,7 @@ export class MedicalRecordsService {
       const medicalHistoryBase = this.medicalHistoryBaseRepository.create({
         ...createMedicalHistoryBaseDto,
         medicalRecord,
+        companyId: medicalRecord.companyId,
       });
       
       const savedMedicalHistoryBase = await this.medicalHistoryBaseRepository.save(medicalHistoryBase);
@@ -666,6 +676,7 @@ export class MedicalRecordsService {
       const specialtyMedicalHistory = this.specialtyMedicalHistoryRepository.create({
         ...createSpecialtyMedicalHistoryDto,
         medicalRecord,
+        companyId: medicalRecord.companyId,
       });
       
       const savedSpecialtyMedicalHistory = await this.specialtyMedicalHistoryRepository.save(specialtyMedicalHistory);
