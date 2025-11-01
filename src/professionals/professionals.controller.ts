@@ -202,7 +202,7 @@ export class ProfessionalsController {
   }
 
   @Post('upload-signature')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.DOCTOR, UserRole.NURSE, UserRole.RECEPTIONIST)
   @UseInterceptors(
     FileInterceptor('signature', {
       storage: diskStorage({
