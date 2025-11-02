@@ -10,5 +10,6 @@ export class JwtResponseDto {
     isActive: boolean;
     companyId?: string;
     companyName?: string;
+    companyRuc?: string;
   };
 }

@@ -72,6 +72,7 @@ export class AuthService {
         isActive: user.isActive,
         companyId: user.companyId,
         companyName: user.company?.name,
+        companyRuc: user.company?.ruc,
       },
     };
   }
