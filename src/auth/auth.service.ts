@@ -70,6 +70,8 @@ export class AuthService {
         email: user.email,
         role: user.role,
         isActive: user.isActive,
+        companyId: user.companyId,
+        companyName: user.company?.name,
       },
     };
   }

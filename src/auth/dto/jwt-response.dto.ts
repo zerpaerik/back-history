@@ -8,5 +8,7 @@ export class JwtResponseDto {
     email: string;
     role: UserRole;
     isActive: boolean;
+    companyId?: string;
+    companyName?: string;
   };
 }
