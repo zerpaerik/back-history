@@ -134,10 +134,10 @@ export class MedicalHistoryBase {
 
   // === ANTECEDENTES GINECO-OBSTÉTRICOS (Para mujeres) ===
   @Column({ type: 'integer', nullable: true })
-  pregnancies: number; // Gestas
+  pregnancies: number; // Gestas (G)
 
   @Column({ type: 'integer', nullable: true })
-  births: number; // Partos
+  births: number; // Partos (P)
 
   @Column({ type: 'integer', nullable: true })
   abortions: number; // Abortos
@@ -146,13 +146,22 @@ export class MedicalHistoryBase {
   cesareans: number; // Cesáreas
 
   @Column({ type: 'date', nullable: true })
-  lastMenstrualPeriod: Date; // FUM
+  lastMenstrualPeriod: Date; // FUR (Fecha de Última Regla)
 
   @Column({ type: 'integer', nullable: true })
   menarche: number; // Edad de menarquia
 
   @Column({ type: 'text', nullable: true })
   contraceptiveMethod: string; // Método anticonceptivo
+
+  @Column({ type: 'text', nullable: true })
+  pap: string; // PAP (Papanicolaou)
+
+  @Column({ type: 'text', nullable: true })
+  mac: string; // MAC (Método Anticonceptivo)
+
+  @Column({ type: 'text', nullable: true })
+  andria: string; // Andria
 
   // === ANTECEDENTES OCUPACIONALES (Importante en Perú - minería, agricultura) ===
   @Column({ type: 'text', nullable: true })

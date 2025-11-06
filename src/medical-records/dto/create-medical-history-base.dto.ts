@@ -137,6 +137,18 @@ export class CreateMedicalHistoryBaseDto {
   @IsString()
   contraceptiveMethod?: string;
 
+  @IsOptional()
+  @IsString()
+  pap?: string;
+
+  @IsOptional()
+  @IsString()
+  mac?: string;
+
+  @IsOptional()
+  @IsString()
+  andria?: string;
+
   // === ANTECEDENTES OCUPACIONALES ===
   @IsOptional()
   @IsString()
